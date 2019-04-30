@@ -28,6 +28,8 @@ class Dataset:
         self.num_classes = len(self._df.label.unique())
         self.shuffle()
 
+        self._counter = 0
+
     def __len__(self):
         return self.num_data
 
@@ -39,7 +41,7 @@ class Dataset:
         else:
             batch = self._df.iloc[index]
             images = np.zeros((len(batch),64,64,3),dtype=np.uint8)
-            for idx, row in batch.iterrows():
+            for idx, (_, row) in enumerate(batch.iterrows()):
                 images[idx] = self._get_image(row.filename)
             labels = batch.label.values
             return images, labels
@@ -54,6 +56,13 @@ class Dataset:
             return self._label_map[label]
         else:
             return pd.Series(label).map(self._label_map).values
+
+    def next_batch(self, batch_size):
+        if self._counter + batch_size >= self.num_data:
+            self.shuffle()
+            self._counter = 0
+        self._counter += batch_size
+        return self[self._counter-batch_size:self._counter]
 
     def shuffle(self):
         self._df = self._df.sample(frac=1).reset_index(drop=True)
