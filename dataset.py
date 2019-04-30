@@ -40,7 +40,7 @@ class Dataset:
             return image, batch.label
         else:
             batch = self._df.iloc[index]
-            images = np.zeros((len(batch),64,64,3),dtype=np.uint8)
+            images = np.zeros((len(batch),64,64,3))
             for idx, (_, row) in enumerate(batch.iterrows()):
                 images[idx] = self._get_image(row.filename)
             labels = batch.label.values
@@ -49,7 +49,10 @@ class Dataset:
     def _get_image(self, filename):
         image_path = os.path.join(self._image_dir, filename)
         image = cv2.imread(image_path)
-        return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        return cv2.normalize(image, None, 0., 1.,
+                             norm_type=cv2.NORM_MINMAX,
+                             dtype=cv2.CV_32F)
 
     def label2name(self, label):
         if isinstance(label, int):
