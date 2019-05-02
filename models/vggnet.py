@@ -46,7 +46,6 @@ class VGGNet:
             labels = tf.placeholder(tf.int32, (None,), name='labels')
 
             is_train = tf.placeholder_with_default(False, (), name='is_train')
-            lr = tf.placeholder_with_default(0.001, (), name='learning_rate')
         return self
 
     def _attach_inference_network(self, conv_ratio=2., fc_ratio=4.):
@@ -101,23 +100,21 @@ class VGGNet:
                                         activation=tf.nn.relu)(conv)
                 pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
 
-            # (None,4,4,...) -> (None,2,2,...)
-            # with tf.variable_scope('VGG_Block5'):
-            #     conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
-            #                             kernel_initializer=he_init,
-            #                             activation=tf.nn.relu)(pool)
-            #     conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
-            #                             kernel_initializer=he_init,
-            #                             activation=tf.nn.relu)(conv)
-            #     conv = tf.layers.Conv2D(512//conv_ratio, (1, 1), padding='SAME',
-            #                             kernel_initializer=he_init,
-            #                             activation=tf.nn.relu)(conv)
-            #     pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
+            with tf.variable_scope('VGG_Block5'):
+                conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
+                                        kernel_initializer=he_init,
+                                        activation=tf.nn.relu)(pool)
+                conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
+                                        kernel_initializer=he_init,
+                                        activation=tf.nn.relu)(conv)
+                conv = tf.layers.Conv2D(512//conv_ratio, (1, 1), padding='SAME',
+                                        kernel_initializer=he_init,
+                                        activation=tf.nn.relu)(conv)
 
             with tf.variable_scope('VGG_FC'):
-                pool = tf.layers.Flatten()(pool)
-                fc1 = tf.layers.Dense(4096//fc_ratio, activation=tf.nn.relu,
-                                     kernel_initializer=he_init)(pool)
+                conv = tf.layers.Flatten()(conv)
+                fc1 = tf.layers.Dense(4096//fc_ratio,activation=tf.nn.relu,
+                                     kernel_initializer=he_init)(conv)
                 drop1 = tf.layers.Dropout(rate=0.5)(fc1, training=is_train)
                 fc2 = tf.layers.Dense(4096//fc_ratio, activation=tf.nn.relu,
                                      kernel_initializer=he_init)(drop1)
@@ -184,22 +181,26 @@ class VGGNet:
                 tf.add_to_collection(tf.GraphKeys.SUMMARY_OP, merged)
         return self
 
-    def _attach_optimizer_network(self, momentum=0.9, weight_decay=5e-4):
-        lr = self.graph.get_tensor_by_name('learning_rate:0')
+    def _attach_optimizer_network(self, init_lr=0.001, decay_steps=1562, decay_rate=0.9,
+                                  momentum=0.9, weight_decay=5e-4):
         loss = self.graph.get_collection(tf.GraphKeys.LOSSES)[0]
 
         with self.graph.as_default():
             with tf.variable_scope('optimizer'):
-                with tf.variable_scope('l2_loss'):
-                    weights = self.graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="[\w\/]*/kernel:0")
-                    l2_loss = weight_decay * tf.add_n([tf.nn.l2_loss(var) for var in weights], name='l2_loss')
-                    self.graph.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES,l2_loss)
+                global_step = tf.train.get_or_create_global_step()
+                with tf.variable_scope('learning_rate_decay'):
+                    lr = tf.train.exponential_decay(init_lr, global_step,
+                                                    decay_steps, decay_rate)
+                lr = tf.identity(lr, name='learning_rate')
 
+                with tf.variable_scope('l2_loss'):
+                    weights = self.graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                                        scope="[\w\/]*/kernel:0")
+                    l2_loss = weight_decay * tf.add_n([tf.nn.l2_loss(var) for var in weights],name='l2_loss')
                     loss = loss + l2_loss
 
-                global_step = tf.train.get_or_create_global_step()
-                train_op = (tf.train
-                            .MomentumOptimizer(lr, momentum=momentum, use_nesterov=True)
+                self.graph.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, l2_loss)
+                train_op = (tf.train.AdamOptimizer(lr)
                             .minimize(loss, global_step=global_step))
 
         return self
