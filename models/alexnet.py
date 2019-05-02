@@ -35,11 +35,7 @@ class Alexnet:
             is_not_initialized = self.session.run(
                 [tf.is_variable_initialized(var) for var in global_vars])
             not_initialized_vars = [
-                v for (
-                    v,
-                    f) in zip(
-                    global_vars,
-                    is_not_initialized) if not f]
+                v for (v, f) in zip( global_vars, is_not_initialized) if not f]
 
             if len(not_initialized_vars):
                 self.session.run(
@@ -66,8 +62,8 @@ class Alexnet:
                 c1 = tf.layers.Conv2D(96 // f_ratio, (11, 11), strides=4, padding='SAME',
                                       kernel_initializer=kernel_init,
                                       activation=tf.nn.relu)(x)
-                c1 = tf.nn.local_response_normalization(c1, depth_radius=2,
-                                                        bias=1, alpha=2e-5,
+                c1 = tf.nn.local_response_normalization(c1, depth_radius=5,
+                                                        bias=2, alpha=1e-4,
                                                         beta=0.75, name='LRN')
 
             s1 = tf.layers.MaxPooling2D((3, 3), (2, 2), name='MAXPOOL1')(c1)
@@ -77,8 +73,8 @@ class Alexnet:
                                       kernel_initializer=kernel_init,
                                       bias_initializer=bias_one_init,
                                       activation=tf.nn.relu)(s1)
-                c2 = tf.nn.local_response_normalization(c2, depth_radius=2,
-                                                        bias=1, alpha=2e-5,
+                c2 = tf.nn.local_response_normalization(c2, depth_radius=5,
+                                                        bias=2, alpha=1e-4,
                                                         beta=0.75, name='LRN')
 
             s2 = tf.layers.MaxPooling2D((3, 3), (2, 2), name='MAXPOOL2')(c2)
