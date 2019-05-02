@@ -147,26 +147,28 @@ class VGGNet:
     def _attach_metric_network(self):
         labels = self.graph.get_tensor_by_name('labels:0')
         logits = self.graph.get_tensor_by_name('logits:0')
+        loss = self.graph.get_collection(tf.GraphKeys.LOSSES)[0]
 
         with self.graph.as_default():
-            with self.graph.as_default():
-                with tf.variable_scope('metrics'):
-                    top_5, top_5_op = tf.metrics.mean(
-                        tf.cast(tf.nn.in_top_k(logits, labels, k=5), tf.float32) * 100)
-                    top_1, top_1_op = tf.metrics.mean(
-                        tf.cast(tf.nn.in_top_k(logits, labels, k=1), tf.float32) * 100)
+            with tf.variable_scope('metrics'):
+                top_5, top_5_op = tf.metrics.mean(
+                    tf.cast(tf.nn.in_top_k(logits, labels, k=5), tf.float32) * 100)
+                top_1, top_1_op = tf.metrics.mean(
+                    tf.cast(tf.nn.in_top_k(logits, labels, k=1), tf.float32) * 100)
+                loss, loss_op = tf.metrics.mean(loss)
 
-                    metric_init_op = tf.group([var.initializer for var in
-                                               self.graph.get_collection(tf.GraphKeys.METRIC_VARIABLES)],
-                                              name='metric_init_op')
-                    metric_update_op = tf.group([top_5_op, top_1_op], name='metric_update_op')
+            metric_init_op = tf.group([var.initializer for var in
+                                       self.graph.get_collection(tf.GraphKeys.METRIC_VARIABLES)],
+                                      name='metric_init_op')
+            metric_update_op = tf.group([top_5_op, top_1_op, loss_op], name='metric_update_op')
 
-            self.graph.get_collection('metric_ops', metric_init_op)
-            self.graph.get_collection('metric_ops', metric_update_op)
+            self.graph.add_to_collection('metric_ops', metric_init_op)
+            self.graph.add_to_collection('metric_ops', metric_update_op)
             top_5 = tf.identity(top_5, name='top_5_accuracy')
             top_1 = tf.identity(top_1, name='top_1_accuracy')
             tf.summary.scalar('top5_accuracy', top_5)
             tf.summary.scalar('top1_accuracy', top_1)
+            tf.summary.scalar('loss', loss)
 
         return self
 
