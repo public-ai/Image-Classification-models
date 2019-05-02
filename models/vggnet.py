@@ -1,12 +1,4 @@
 import tensorflow as tf
-import numpy as np
-"""
-Copyright 2019, SangJae Kang, All rights reserved.
-Mail : rocketgrowthsj@gmail.com
-"""
-
-
-import tensorflow as tf
 """
 Copyright 2019, SangJae Kang, All rights reserved.
 Mail : rocketgrowthsj@gmail.com
@@ -57,78 +49,84 @@ class VGGNet:
             lr = tf.placeholder_with_default(0.001, (), name='learning_rate')
         return self
 
-    def _attach_inference_network(self, f_ratio=2.):
+    def _attach_inference_network(self, conv_ratio=2., fc_ratio=4.):
         x = self.graph.get_tensor_by_name('X:0')
         is_train = self.graph.get_tensor_by_name('is_train:0')
 
         with self.graph.as_default():
-            kernel_init = tf.initializers.random_normal(mean=0.0,stddev=0.01)
-            bias_one_init = tf.initializers.constant(1)
-
             he_init = tf.initializers.he_normal()
             with tf.variable_scope('VGG_Block1'):
-                conv = tf.layers.Conv2D(64//f_ratio, (3, 3), padding='SAME',
+                conv = tf.layers.Conv2D(64//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(x)
-                conv = tf.layers.Conv2D(64//f_ratio, (3, 3), padding='SAME',
+                conv = tf.layers.Conv2D(64//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
                 pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
+            self.graph.add_to_collection(tf.GraphKeys.ACTIVATIONS, conv)
 
             with tf.variable_scope('VGG_Block2'):
-                conv = tf.layers.Conv2D(128//f_ratio, (3, 3), padding='SAME',
+                conv = tf.layers.Conv2D(128//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(pool)
-                conv = tf.layers.Conv2D(128//f_ratio, (3, 3), padding='SAME',
+                conv = tf.layers.Conv2D(128//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
                 pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
+            self.graph.add_to_collection(tf.GraphKeys.ACTIVATIONS, conv)
 
             with tf.variable_scope('VGG_Block3'):
-                conv = tf.layers.Conv2D(256//f_ratio, (3, 3), padding='SAME',
+                conv = tf.layers.Conv2D(256//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(pool)
-                conv = tf.layers.Conv2D(256//f_ratio, (3, 3), padding='SAME',
+                conv = tf.layers.Conv2D(256//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
-                conv = tf.layers.Conv2D(256//f_ratio, (1, 1), padding='SAME',
+                conv = tf.layers.Conv2D(256//conv_ratio, (1, 1), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
                 pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
+            self.graph.add_to_collection(tf.GraphKeys.ACTIVATIONS, conv)
 
             with tf.variable_scope('VGG_Block4'):
-                conv = tf.layers.Conv2D(512//f_ratio, (3, 3), padding='SAME',
+                conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(pool)
-                conv = tf.layers.Conv2D(512//f_ratio, (3, 3), padding='SAME',
+                conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
-                conv = tf.layers.Conv2D(512//f_ratio, (1, 1), padding='SAME',
+                conv = tf.layers.Conv2D(512//conv_ratio, (1, 1), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
                 pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
+            self.graph.add_to_collection(tf.GraphKeys.ACTIVATIONS, conv)
 
             with tf.variable_scope('VGG_Block5'):
-                conv = tf.layers.Conv2D(512//f_ratio, (3, 3), padding='SAME',
+                conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(pool)
-                conv = tf.layers.Conv2D(512//f_ratio, (3, 3), padding='SAME',
+                conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
-                conv = tf.layers.Conv2D(512//f_ratio, (1, 1), padding='SAME',
+                conv = tf.layers.Conv2D(512//conv_ratio, (1, 1), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
                 pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
+            self.graph.add_to_collection(tf.GraphKeys.ACTIVATIONS, conv)
 
             with tf.variable_scope('VGG_FC'):
                 pool = tf.layers.Flatten()(pool)
-                fc = tf.layers.Dense(4096//f_ratio, activation=tf.nn.relu,
+                fc1 = tf.layers.Dense(4096//fc_ratio, activation=tf.nn.relu,
                                      kernel_initializer=he_init)(pool)
-                fc = tf.layers.Dense(4096//f_ratio, activation=tf.nn.relu,
-                                     kernel_initializer=he_init)(fc)
+                drop1 = tf.layers.Dropout(rate=0.5)(fc1, training=is_train)
+                fc2 = tf.layers.Dense(4096//fc_ratio, activation=tf.nn.relu,
+                                     kernel_initializer=he_init)(drop1)
+                drop2 = tf.layers.Dropout(rate=0.5)(fc2, training=is_train)
+            self.graph.add_to_collection(tf.GraphKeys.ACTIVATIONS, fc1)
+            self.graph.add_to_collection(tf.GraphKeys.ACTIVATIONS, fc2)
 
             with tf.variable_scope('OUTPUT'):
-                logits = tf.layers.Dense(self._num_classes)(fc)
+                logits = tf.layers.Dense(self._num_classes)(drop2)
 
             logits = tf.identity(logits, name='logits')
             y_pred = tf.nn.softmax(logits, name='prediction')
@@ -151,12 +149,20 @@ class VGGNet:
         logits = self.graph.get_tensor_by_name('logits:0')
 
         with self.graph.as_default():
-            with tf.variable_scope('metrics'):
-                top_5 = tf.reduce_mean(
-                    tf.cast(tf.nn.in_top_k(logits, labels, k=5), tf.float32))*100
-                top_1 = tf.reduce_mean(
-                    tf.cast(tf.nn.in_top_k(logits, labels, k=1), tf.float32))*100
+            with self.graph.as_default():
+                with tf.variable_scope('metrics'):
+                    top_5, top_5_op = tf.metrics.mean(
+                        tf.cast(tf.nn.in_top_k(logits, labels, k=5), tf.float32) * 100)
+                    top_1, top_1_op = tf.metrics.mean(
+                        tf.cast(tf.nn.in_top_k(logits, labels, k=1), tf.float32) * 100)
 
+                    metric_init_op = tf.group([var.initializer for var in
+                                               self.graph.get_collection(tf.GraphKeys.METRIC_VARIABLES)],
+                                              name='metric_init_op')
+                    metric_update_op = tf.group([top_5_op, top_1_op], name='metric_update_op')
+
+            self.graph.get_collection('metric_ops', metric_init_op)
+            self.graph.get_collection('metric_ops', metric_update_op)
             top_5 = tf.identity(top_5, name='top_5_accuracy')
             top_1 = tf.identity(top_1, name='top_1_accuracy')
             tf.summary.scalar('top5_accuracy', top_5)
@@ -167,6 +173,18 @@ class VGGNet:
     def _attach_summary_network(self):
         with self.graph.as_default():
             with tf.variable_scope('summaries'):
+                # Activation Map Check
+                for act_map in self.graph.get_collection(tf.GraphKeys.ACTIVATIONS):
+                    tf.summary.histogram(act_map.op.name, act_map)
+                    tf.summary.histogram(act_map.op.name + '/sparsity',
+                                         tf.nn.zero_fraction(act_map))
+
+                weights = self.graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                                   scope="[\w\/]*/kernel:0")
+                # Weight Distribution Check
+                for weight in weights:
+                    tf.summary.histogram(weight.op.name, weight)
+
                 merged = tf.summary.merge_all()
                 tf.add_to_collection(tf.GraphKeys.SUMMARY_OP, merged)
         return self
