@@ -55,76 +55,85 @@ class VGGNet:
 
         with self.graph.as_default():
             he_init = tf.initializers.he_normal()
-            # (None,64,64,3) -> (None,32,32,...)
+            batch_norm = tf.layers.BatchNormalization
             with tf.variable_scope('VGG_Block1'):
                 conv = tf.layers.Conv2D(64//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(x)
+                conv = batch_norm()(conv, training=is_train)
                 conv = tf.layers.Conv2D(64//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
+                conv = batch_norm()(conv, training=is_train)
                 pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
 
-            # (None,32,32,...) -> (None,16,16,...)
             with tf.variable_scope('VGG_Block2'):
                 conv = tf.layers.Conv2D(128//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(pool)
+                conv = batch_norm()(conv, training=is_train)
                 conv = tf.layers.Conv2D(128//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
+                conv = batch_norm()(conv, training=is_train)
                 pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
 
-            # (None,16,16,...) -> (None,8,8,...)
             with tf.variable_scope('VGG_Block3'):
                 conv = tf.layers.Conv2D(256//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(pool)
+                conv = batch_norm()(conv, training=is_train)
                 conv = tf.layers.Conv2D(256//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
+                conv = batch_norm()(conv, training=is_train)
                 conv = tf.layers.Conv2D(256//conv_ratio, (1, 1), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
+                conv = batch_norm()(conv, training=is_train)
                 pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
 
-            # (None,8,8,...) -> (None,4,4,...)
             with tf.variable_scope('VGG_Block4'):
                 conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(pool)
+                conv = batch_norm()(conv, training=is_train)
                 conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
+                conv = batch_norm()(conv, training=is_train)
                 conv = tf.layers.Conv2D(512//conv_ratio, (1, 1), padding='SAME',
                                         kernel_initializer=he_init,
                                         activation=tf.nn.relu)(conv)
+                conv = batch_norm()(conv, training=is_train)
                 pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
 
-            # (None,4,4,...) -> (None,2,2,...)
-            # with tf.variable_scope('VGG_Block5'):
-            #     conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
-            #                             kernel_initializer=he_init,
-            #                             activation=tf.nn.relu)(pool)
-            #     conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
-            #                             kernel_initializer=he_init,
-            #                             activation=tf.nn.relu)(conv)
-            #     conv = tf.layers.Conv2D(512//conv_ratio, (1, 1), padding='SAME',
-            #                             kernel_initializer=he_init,
-            #                             activation=tf.nn.relu)(conv)
-            #     pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
+            with tf.variable_scope('VGG_Block5'):
+                conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
+                                        kernel_initializer=he_init,
+                                        activation=tf.nn.relu)(pool)
+                conv = batch_norm()(conv, training=is_train)
+                conv = tf.layers.Conv2D(512//conv_ratio, (3, 3), padding='SAME',
+                                        kernel_initializer=he_init,
+                                        activation=tf.nn.relu)(conv)
+                conv = batch_norm()(conv, training=is_train)
+                conv = tf.layers.Conv2D(512//conv_ratio, (1, 1), padding='SAME',
+                                        kernel_initializer=he_init,
+                                        activation=tf.nn.relu)(conv)
+                conv = batch_norm()(conv, training=is_train)
+                pool = tf.layers.MaxPooling2D((2, 2), (2, 2))(conv)
 
             with tf.variable_scope('VGG_FC'):
                 pool = tf.layers.Flatten()(pool)
                 fc1 = tf.layers.Dense(4096//fc_ratio, activation=tf.nn.relu,
                                      kernel_initializer=he_init)(pool)
-                drop1 = tf.layers.Dropout(rate=0.5)(fc1, training=is_train)
+                bn1 = batch_norm()(fc1, training=is_train)
                 fc2 = tf.layers.Dense(4096//fc_ratio, activation=tf.nn.relu,
-                                     kernel_initializer=he_init)(drop1)
-                drop2 = tf.layers.Dropout(rate=0.5)(fc2, training=is_train)
+                                     kernel_initializer=he_init)(bn1)
+                bn2 = batch_norm()(fc2, training=is_train)
 
             with tf.variable_scope('OUTPUT'):
-                logits = tf.layers.Dense(self._num_classes)(drop2)
+                logits = tf.layers.Dense(self._num_classes)(bn2)
 
             logits = tf.identity(logits, name='logits')
             y_pred = tf.nn.softmax(logits, name='prediction')
@@ -153,7 +162,7 @@ class VGGNet:
                     tf.cast(tf.nn.in_top_k(logits, labels, k=5), tf.float32) * 100)
                 top_1, top_1_op = tf.metrics.mean(
                     tf.cast(tf.nn.in_top_k(logits, labels, k=1), tf.float32) * 100)
-                full_loss, loss_op = tf.metrics.mean(loss)
+                loss, loss_op = tf.metrics.mean(loss)
 
             metric_init_op = tf.group([var.initializer for var in
                                        self.graph.get_collection(tf.GraphKeys.METRIC_VARIABLES)],
@@ -164,10 +173,9 @@ class VGGNet:
             self.graph.add_to_collection('metric_ops', metric_update_op)
             top_5 = tf.identity(top_5, name='top_5_accuracy')
             top_1 = tf.identity(top_1, name='top_1_accuracy')
-            full_loss = tf.identity(full_loss, name='full_loss')
             tf.summary.scalar('top5_accuracy', top_5)
             tf.summary.scalar('top1_accuracy', top_1)
-            tf.summary.scalar('full_loss', full_loss)
+            tf.summary.scalar('loss', loss)
 
         return self
 
@@ -194,14 +202,15 @@ class VGGNet:
                     weights = self.graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="[\w\/]*/kernel:0")
                     l2_loss = weight_decay * tf.add_n([tf.nn.l2_loss(var) for var in weights], name='l2_loss')
                     self.graph.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES,l2_loss)
-
                     loss = loss + l2_loss
 
                 global_step = tf.train.get_or_create_global_step()
-                train_op = (tf.train
-                            .MomentumOptimizer(lr, momentum=momentum, use_nesterov=True)
-                            .minimize(loss, global_step=global_step))
-
+                update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+                with tf.control_dependencies(update_ops):
+                    train_op = (tf.train
+                                .MomentumOptimizer(lr, momentum=momentum,
+                                                   use_nesterov=True)
+                                .minimize(loss, global_step=global_step))
         return self
 
     def build_network(self):
