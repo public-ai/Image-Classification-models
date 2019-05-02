@@ -122,9 +122,9 @@ class VGGNet:
 
             with tf.variable_scope('VGG_FC'):
                 pool = tf.layers.Flatten()(pool)
-                fc = tf.layers.Dense(4096, activation=tf.nn.relu,
+                fc = tf.layers.Dense(4096//f_ratio, activation=tf.nn.relu,
                                      kernel_initializer=he_init)(pool)
-                fc = tf.layers.Dense(4096, activation=tf.nn.relu,
+                fc = tf.layers.Dense(4096//f_ratio, activation=tf.nn.relu,
                                      kernel_initializer=he_init)(fc)
 
             with tf.variable_scope('OUTPUT'):
